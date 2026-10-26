@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import { MOTOR, entornoHyperframes } from "../lib/comun.mjs";
+import { fuenteSonidos } from "../lib/sonidos.mjs";
 
 const SO = process.platform === "darwin" ? "mac" : process.platform === "win32" ? "windows" : "linux";
 const COMO = {
@@ -62,6 +63,11 @@ export function instalar() {
   // el Chrome con el que HyperFrames dibuja cada cuadro (se baja una vez, ~100 MB)
   const b = spawnSync(process.execPath, [join(MOTOR, "node_modules", "hyperframes", "bin", "hyperframes.mjs"), "browser", "ensure"], { cwd: MOTOR, env: entornoHyperframes(), encoding: "utf8" });
   console.log(b.status === 0 ? "✅ Chrome para renderizar listo" : `⚠️  No pude preparar el Chrome de HyperFrames todavía; se baja solo en el primer render.\n${String(b.stdout || "").slice(-300)}${String(b.stderr || "").slice(-300)}`);
+  // los efectos de sonido: los que trae HyperFrames (Pixabay); si no están, se arman con FFmpeg en el primer render
+  const sfx = fuenteSonidos();
+  console.log(sfx.tipo === "sinteticos"
+    ? "⚠️  Efectos de sonido: no encontré los de HyperFrames; uso unos de reemplazo hechos con FFmpeg (suenan más simples)"
+    : `✅ Efectos de sonido listos (${sfx.tipo === "carpeta" ? "tu carpeta de EDITAR_SFX" : "los que trae HyperFrames, de Pixabay"})`);
   if (faltan.length) {
     console.log(`\n❌ Falta: ${faltan.join(", ")}. Instalalo y volvé a correr: node editar.mjs instalar`);
     return { ok: false, faltan };

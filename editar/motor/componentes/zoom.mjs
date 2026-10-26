@@ -11,6 +11,8 @@ export default {
   sinCaja: true,
   build({ el, t0, t1 }) {
     const escala = Math.max(1.03, Math.min(1.35, Number(el.escala) || 1.12));
-    return { video: [{ tipo: "zoom", t0, t1, escala, forma: el.forma === "empuje" ? "empuje" : "golpe" }] };
+    const forma = el.forma === "empuje" ? "empuje" : "golpe";
+    // el zoom de golpe lleva un golpe grave; el empuje es suave y va sin sonido
+    return { video: [{ tipo: "zoom", t0, t1, escala, forma }], sonidos: forma === "golpe" ? [{ t: t0, tipo: "golpe", que: "zoom de golpe" }] : [] };
   },
 };

@@ -38,6 +38,7 @@ export default {
 #${id} .mk path{fill:none;stroke:var(--acento);stroke-width:13;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;}
 #${id} .mk.num{display:inline-flex;align-items:center;justify-content:center;width:${Math.round(tam * 1.05)}px;height:${Math.round(tam * 1.05)}px;border-radius:50%;background:var(--acento);color:var(--sobre-acento);font-size:${Math.round(tam * 0.62)}px;font-weight:900;text-shadow:none;}`;
     let tl = "";
+    const sonidos = el.titulo ? [{ t: t0, tipo: "whoosh", que: `título «${el.titulo}»` }] : [];
     if (el.titulo) tl += M.entrada(`#${id} .li-t`, t0, { tipo: "sube" });
     let previo = t0 + (el.titulo ? 0.3 : 0);
     const reparto = (t1 - 0.8 - previo) / n;
@@ -46,11 +47,12 @@ export default {
       if (at === null || at === undefined) at = previo + (k === 0 ? 0 : reparto);
       at = Math.max(at, previo);
       previo = at;
+      sonidos.push({ t: +at.toFixed(3), tipo: "click", que: `ítem ${k + 1}: ${it.texto}` });
       tl += `tl.fromTo("#${id} .li${k}",{opacity:0,x:${-Math.round(40 * escala)}},{opacity:1,x:0,duration:${M.t(M.dur)},ease:"${M.en.curva}"},${M.t(at)});`;
       if (marca === "numero") tl += `tl.fromTo("#${id} .li${k} .mk",{scale:0.4},{scale:1,duration:${M.t(M.dur)},ease:"${M.en.pop}"},${M.t(at)});`;
       else tl += `tl.fromTo("#${id} .li${k} .mk path",{strokeDashoffset:1},{strokeDashoffset:0,duration:0.35,ease:"power2.out"},${M.t(at + 0.1)});`;
     });
     tl += M.salida(`#${id} .lw`, t1);
-    return { html, css, tl };
+    return { html, css, tl, sonidos };
   },
 };

@@ -81,6 +81,6 @@ export default {
 }`;
     tl += `tl.fromTo("#${id} .o3",{opacity:0},{opacity:1,duration:0.15},${M.t(t0)});`;
     tl += `tl.to("#${id} .o3",{opacity:0,duration:0.2},${M.t(Math.max(t0, t1 - 0.2))});`;
-    return { html, css, tl, modulo, vendor: ["three.module.js", "three.core.js"] };
+    return { html, css, tl, modulo, vendor: ["three.module.js", "three.core.js"], sonidos: [{ t: t0, tipo: "whoosh", que: `objeto 3D (${forma})` }] };
   },
 };

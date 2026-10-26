@@ -8,11 +8,12 @@
 //   --con-muletillas  deja los «eh», «em», «mmm»
 // Los silencios salen de dos lados: los huecos entre palabras de Whisper y la energía real del audio
 // (el umbral se adapta al ruido del lugar). Manda el audio: Whisper a veces estira palabras sobre las pausas.
+// Con «velocidad: 1.1» en mi-estilo.md el video cortado va 10 % más rápido, sin cambiar el tono de la voz.
 // Escribe: cortado.mp4, transcript-cortado.json, cortes.json
 import { existsSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { rutas, duracion, arg, tiene, mmss } from "../lib/comun.mjs";
+import { rutas, duracion, arg, tiene, mmss, argGrafo } from "../lib/comun.mjs";
 import { cargarPalabras, normalizar, frases } from "../lib/transcript.mjs";
 import { cargarEstilo, buscarEstilo } from "../lib/estilo.mjs";
 
@@ -195,6 +196,12 @@ export function planificar(palabras, dur, { silencio = 0.4, quitar = [], muletil
   };
 }
 
+// la voz más rápida (velocidad > 1): los tiempos del transcript y de los cortes se achican igual que el video
+function acelerarTiempos(palabras, v) {
+  if (v <= 1.001) return palabras;
+  return palabras.map((w) => ({ ...w, start: +(w.start / v).toFixed(3), end: +(w.end / v).toFixed(3) }));
+}
+
 export function cortar(video, opts = {}) {
   const R = rutas(video);
   if (!existsSync(R.fuente)) throw new Error("Falta preparar el video primero: node editar.mjs preparar <video>");
@@ -203,7 +210,8 @@ export function cortar(video, opts = {}) {
   const muletillas = opts.muletillas ?? est.ajustes.quitar_muletillas;
   const palabras = cargarPalabras(R.transcript);
   const dur = duracion(R.fuente);
-  if (!silencio) {
+  const v = opts.velocidad ?? est.ajustes.velocidad ?? 1;
+  if (!silencio && v <= 1.001) {
     // el estilo dice no cortar: el cortado es el mismo video
     copyFileSync(R.fuente, R.cortado);
     writeFileSync(R.transcriptCortado, JSON.stringify(palabras, null, 1));
@@ -218,12 +226,15 @@ export function cortar(video, opts = {}) {
     energiaAudio = { ...en, umbral: r.umbral, nivelVoz: r.voz };
     nota = r.umbral === null ? " · el audio no tiene contraste voz/ruido: corté solo por el transcript" : "";
   }
-  const plan = planificar(palabras, dur, { silencio, quitar: opts.quitar || [], muletillas, silencios, energiaAudio });
+  const plan = silencio
+    ? planificar(palabras, dur, { silencio, quitar: opts.quitar || [], muletillas, silencios, energiaAudio })
+    : { palabras, segmentos: [{ a: 0, b: +dur.toFixed(3) }], puntos: [], quitados: [], muletillas: [], muletillasDejadas: [], recortadas: [], final: +dur.toFixed(3) };
   const pct = dur > 0 ? ((dur - plan.final) / dur) * 100 : 0;
   const resumen = `de ${dur.toFixed(1)} s a ${plan.final.toFixed(1)} s · ${plan.puntos.length} cortes · ${(dur - plan.final).toFixed(1)} s de aire fuera (${pct.toFixed(0)} %)${plan.muletillas.length ? ` · muletillas fuera: ${plan.muletillas.join(", ")}` : ""}${plan.pedidas?.length ? ` · sacado a pedido (${plan.pedidas.length} palabras): «${plan.pedidas.join(" ")}»` : ""}${plan.muletillasDejadas.length ? ` · muletillas que dejé (pegadas a otra palabra): ${plan.muletillasDejadas.join(", ")}` : ""}${nota}`;
-  if (opts.plan) return { ...plan, resumen, pct };
+  const resumenV = v > 1.001 ? `${resumen} · voz ${Math.round((v - 1) * 100)} % más rápida (velocidad: ${v}): queda en ${(plan.final / v).toFixed(1)} s` : resumen;
+  if (opts.plan) return { ...plan, resumen: resumenV, pct };
   const n = plan.segmentos.length;
-  const sinCambios = n === 1 && plan.segmentos[0].a < 0.01 && plan.segmentos[0].b > dur - 0.01;
+  const sinCambios = n === 1 && plan.segmentos[0].a < 0.01 && plan.segmentos[0].b > dur - 0.01 && v <= 1.001;
   if (sinCambios) {
     // no hay aire que sacar: el cortado es el mismo video (no se recodifica)
     copyFileSync(R.fuente, R.cortado);
@@ -236,16 +247,21 @@ export function cortar(video, opts = {}) {
   const partes = plan.segmentos.map((s, k) =>
     `[0:v]trim=start=${s.a}:end=${s.b},setpts=PTS-STARTPTS[v${k}];` +
     `[0:a]atrim=start=${s.a}:end=${s.b},asetpts=PTS-STARTPTS,afade=t=in:d=${F},afade=t=out:st=${Math.max(0, s.b - s.a - F).toFixed(3)}:d=${F}[a${k}];`).join("");
-  const concat = plan.segmentos.map((_, k) => `[v${k}][a${k}]`).join("") + `concat=n=${n}:v=1:a=1[v][a]`;
+  // con velocidad > 1: setpts acelera la imagen (y fps=30 la deja pareja) y atempo la voz, sin cambiarle el tono
+  const concat = plan.segmentos.map((_, k) => `[v${k}][a${k}]`).join("") + `concat=n=${n}:v=1:a=1` +
+    (v > 1.001 ? `[vc][ac];[vc]setpts=PTS/${v},fps=30[v];[ac]atempo=${v}[a]` : "[v][a]");
   const grafo = join(R.trabajo, "cortes.ffgraph");
   writeFileSync(grafo, partes + concat);
-  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", R.fuente, "-filter_complex_script", grafo, "-map", "[v]", "-map", "[a]",
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", R.fuente, ...argGrafo(grafo), "-map", "[v]", "-map", "[a]",
     "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-g", "30", "-keyint_min", "30", "-sc_threshold", "0", "-pix_fmt", "yuv420p",
     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", R.cortado], { stdio: "inherit" });
-  writeFileSync(R.transcriptCortado, JSON.stringify(plan.palabras, null, 1));
-  writeFileSync(join(R.trabajo, "transcript-cortado.txt"), frases(plan.palabras).map((f) => `[${mmss(f.start)}–${mmss(f.end)}] ${f.texto}`).join("\n") + "\n");
-  writeFileSync(R.cortes, JSON.stringify({ original: +dur.toFixed(3), final: plan.final, silencio, puntos: plan.puntos, segmentos: plan.segmentos, quitados: plan.quitados, muletillas: plan.muletillas }, null, 1));
-  return { ...plan, resumen, pct };
+  const palabrasFinal = acelerarTiempos(plan.palabras, v);
+  const puntos = v > 1.001 ? plan.puntos.map((x) => +(x / v).toFixed(3)) : plan.puntos;
+  writeFileSync(R.transcriptCortado, JSON.stringify(palabrasFinal, null, 1));
+  writeFileSync(join(R.trabajo, "transcript-cortado.txt"), frases(palabrasFinal).map((f) => `[${mmss(f.start)}–${mmss(f.end)}] ${f.texto}`).join("\n") + "\n");
+  // segmentos y quitados quedan en segundos del video preparado; puntos y final, en los del video cortado
+  writeFileSync(R.cortes, JSON.stringify({ original: +dur.toFixed(3), final: +(plan.final / v).toFixed(3), silencio, velocidad: v, puntos, segmentos: plan.segmentos, quitados: plan.quitados, muletillas: plan.muletillas }, null, 1));
+  return { ...plan, resumen: resumenV, pct };
 }
 
 export function main() {

@@ -405,6 +405,11 @@ export function referencia(video, fuente, { hasta = 90, idioma = null, rehacer =
     sug.push(`zoom_cada: ${Math.max(1.2, Math.min(6, M.cambios.plano_medio_s))} (la imagen cambia cada ${M.cambios.plano_medio_s} s; en una toma sin cortes de plano, eso se imita con un zoom al arrancar una frase, sin cortar palabras)`);
     if (M.zooms.cuanto_mediana_pct !== null) sug.push(`zoom_escala: ${Math.max(1.05, Math.min(1.3, 1 + M.zooms.cuanto_mediana_pct / 100)).toFixed(2)} (los saltos con zoom cambian ${M.zooms.cuanto_mediana_pct} %)`);
   }
+  // efectos de sonido: cuanto más cambia la imagen y más cosas entran, más efectos (uno en cada salto, número y texto)
+  {
+    const golpesMin = r1((M.cambios.por_minuto || 0) + (vision ? (M.textos_grandes.por_minuto || 0) + (M.numeros.por_minuto || 0) : 0));
+    sug.push(`efectos: ${golpesMin >= 25 ? "muchos" : golpesMin >= 10 ? "normal" : "pocos"} (${golpesMin} cambios de imagen, textos y números por minuto: cada uno es un lugar para un efecto)`);
+  }
   if (vision) {
     const porMin = r1((M.textos_grandes.por_minuto || 0) + (M.numeros.por_minuto || 0));
     sug.push(`densidad: ${porMin >= 15 ? "muchas" : porMin >= 7 ? "normal" : "pocas"} (${porMin} textos y números por minuto; sumá los íconos e imágenes que veas en las hojas)`);

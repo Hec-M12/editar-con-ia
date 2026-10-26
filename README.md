@@ -1,6 +1,6 @@
 # editar · tu editor de video con IA
 
-Una skill para Claude Code (también sirve en Codex). Le pasás un video donde hablás a cámara y te lo devuelve editado: sin el aire entre frases y con animaciones encima que no te tapan la cara. Antes de tocar tu video, te pregunta qué estilo querés (si le pasás un video que te gusta, mide cómo está editado y lo copia), y cada vez que le corregís algo, lo aprende.
+Una skill para Claude Code (también sirve en Codex). Le pasás un video donde hablás a cámara y te lo devuelve terminado, listo para subir: sin el aire entre frases, con animaciones encima que no te tapan la cara, subtítulos palabra por palabra, efectos de sonido justo cuando entra cada cosa y tu voz pareja. Antes de tocar tu video, te pregunta qué estilo querés (si le pasás un video que te gusta, mide cómo está editado y lo copia), y cada vez que le corregís algo, lo aprende.
 
 Son cuatro herramientas, y tres son gratis:
 
@@ -43,11 +43,11 @@ Editá mi-video.mp4
 
 (También funciona `/editar mi-video.mp4`.)
 
-La primera vez instala el motor (uno o dos minutos) y te hace seis preguntas de estilo, de a una: qué cuentas te gustan, el ritmo, qué animaciones querés, tus colores, cuántas animaciones y si querés subtítulos. Guarda tus respuestas en `mi-estilo.md`, en la carpeta de tu video, y la próxima vez no te pregunta. Al final te deja `mi-video-editado.mp4` al lado del original.
+La primera vez instala el motor (uno o dos minutos) y te hace siete preguntas de estilo, de a una: qué cuentas te gustan, el ritmo, qué animaciones querés, tus colores, cuántas animaciones, cuántos efectos de sonido y cómo querés los subtítulos. Guarda tus respuestas en `mi-estilo.md`, en la carpeta de tu video, y la próxima vez no te pregunta. Al final te deja `mi-video-editado.mp4` al lado del original.
 
 ¿Tenés un video que te encanta cómo está editado? En la primera pregunta pasale el archivo o el link. Lo mira cuadro por cuadro y anota cada cuánto corta, cuántos zooms hace y cuánto acercan, qué textos e íconos aparecen, dónde y cuánto duran. Con eso escribe las reglas en tu `mi-estilo.md` y edita tu video así. Solo lo mide: no copia nada de ese video al tuyo.
 
-Cuando lo veas, pedile cambios como a un editor: «las letras más grandes», «cortá más rápido», «menos animaciones». Cada corrección queda como regla en `mi-estilo.md` y la respeta en los videos que siguen.
+Cuando lo veas (con sonido), pedile cambios como a un editor: «las letras más grandes», «cortá más rápido», «menos animaciones», «los efectos más bajos», «sin el whoosh», «subtítulos de a una palabra». Cada corrección queda como regla en `mi-estilo.md` y la respeta en los videos que siguen. Los cambios de sonido tardan segundos: no vuelve a renderizar.
 
 ## ¿Qué modelo de Whisper conviene?
 
@@ -61,10 +61,13 @@ Se cambia en `mi-estilo.md`, en la línea `whisper:`.
 
 ## Bueno saber
 
-- **Cuánto tarda:** en una MacBook Air M2 con 8 GB, una toma cruda del iPhone (4K, 48 segundos): prepararla 33 segundos, Whisper 8, cortar y mirar la cara 8, y el render de los 13 segundos que quedaron, 36. Un video de 28 segundos se renderiza en un minuto y poco. Medir un video de referencia de un minuto tarda unos 3. El resto es Claude pensando el plan.
+- **Cuánto tarda:** en una MacBook Air M2 con 8 GB, una toma cruda del iPhone (4K, 48 segundos): prepararla 33 segundos, Whisper 8, cortar y mirar la cara 8, y el render de los 12 segundos que quedaron, con subtítulos y efectos de sonido, 35. Un video de 28 segundos se renderiza en un minuto y poco. Medir un video de referencia de un minuto tarda unos 3. Cambiar los sonidos después tarda un segundo. El resto es Claude pensando el plan.
 - **La primera vez necesita internet** para bajar el motor (165 MB), el Chrome con el que HyperFrames dibuja cada cuadro (190 MB), el modelo de Whisper y la fuente. Después, tu video nunca sale de tu compu.
 - **La cara:** en Mac la detecta sola (y en un video de referencia, también lee los textos). En Windows y Linux, Claude mira fotos del video y lo ubica él.
-- **Subtítulos:** opcionales. Te los pone la skill, los ponés vos en tu app (deja libre ese espacio) o van sin.
+- **Subtítulos:** vienen puestos, palabra por palabra y con la que vas diciendo en tu color, en la franja de abajo, sin taparte la cara ni las animaciones. Si preferís ponerlos vos en tu app, decile «los subtítulos los pongo yo» (deja libre ese espacio), o «sin subtítulos». Antes de ponerlos, Claude lee lo que entendió Whisper y corrige las palabras mal escuchadas.
+- **Efectos de sonido:** un whoosh, un pop, un ding o un tic tic en el segundo exacto en que entra cada cosa, siempre más bajos que tu voz. Elegís muchos, pocos o ninguno, y si pasaste un video de referencia te propone cuántos según cómo está editado.
+- **De dónde salen los sonidos:** no vienen en esta carpeta. La skill usa los 19 efectos que trae HyperFrames al instalarse. Son de [Pixabay](https://pixabay.com/sound-effects/) y su licencia ([Pixabay Content License](https://pixabay.com/service/license-summary/)) deja usarlos en tus videos, también comerciales, sin dar crédito; lo que no deja es repartir los archivos sueltos, por eso no están acá. Si no los encuentra, arma sonidos parecidos con FFmpeg. ¿Tenés los tuyos? Poné la carpeta en la variable `EDITAR_SFX` con los mismos nombres de archivo.
+- **Tu voz:** queda pareja y al volumen de Reels, TikTok y Shorts (−14 LUFS), sin subir el ruido de fondo en las pausas. Si la querés como la grabaste: «dejá mi voz como estaba». Con ritmo rápido también la acelera un 10 % sin cambiarle el tono («no aceleres mi voz» lo saca).
 - **Nunca cambia lo que dijiste:** corta aire, no frases.
 
-Hecha por @hectormej.ia. Usa HyperFrames (Apache 2.0), GSAP (gratis, con su propia licencia), Three.js (MIT), whisper.cpp (MIT) y FFmpeg (LGPL).
+Hecha por @hectormej.ia. Usa HyperFrames (Apache 2.0), GSAP (gratis, con su propia licencia), Three.js (MIT), whisper.cpp (MIT), FFmpeg (LGPL) y los efectos de sonido de Pixabay que trae HyperFrames (Pixabay Content License).

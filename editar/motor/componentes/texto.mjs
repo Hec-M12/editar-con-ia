@@ -48,6 +48,8 @@ export default {
 #${id} .tx.con-panel .hl{color:var(--acento-panel);background:var(--marcador-panel);border-radius:.14em;padding:0 .08em;}`;
     const sel = `#${id} .w`;
     let tl = "";
+    const plano = String(el.texto).replace(/\*/g, "");
+    const sonidos = [];
     if (el.al_decirlo) {
       // cada palabra entra cuando se dice: se busca en orden en el transcript, desde t0
       const ws = String(el.texto).replace(/\*/g, "").split(/\s+/).filter(Boolean);
@@ -63,9 +65,11 @@ export default {
         at = Math.max(ultimo, at ?? ultimo + M.stagger * 2);
         ultimo = at;
         tl += M.entrada(`js:document.querySelectorAll("#${id} .w")[${i}]`, at, { stagger: 0 });
+        sonidos.push(i === 0 ? { t: at, tipo: "pop", que: `texto «${plano}»` } : { t: at, tipo: "click suave", que: `«${w}»`, extra: true });
       });
     } else {
       tl += M.entrada(sel, t0, { stagger: M.stagger });
+      sonidos.push({ t: t0, tipo: "pop", que: `texto «${plano}»` });
     }
     if (panel) tl = `tl.fromTo("#${id} .tx",{opacity:0},{opacity:1,duration:0.2},${M.t(t0)});` + tl;
     tl += M.salida(`#${id} .tx`, t1);
@@ -75,6 +79,6 @@ export default {
       const entra = tamanoQueEntra(el.texto, base, z.w, z.h, ajustes.mayusculas);
       if (entra < base / ajustes.tamano_texto) aviso = `${id}: en este lugar las letras no pueden crecer más sin tapar la cara (quedan en ~${entra} px): acortalo a 1 o 2 palabras o anclalo con el plano más abierto`;
     }
-    return { html, css, tl, aviso };
+    return { html, css, tl, aviso, sonidos };
   },
 };

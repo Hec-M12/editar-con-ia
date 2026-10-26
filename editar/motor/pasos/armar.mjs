@@ -4,7 +4,8 @@
 //   node editar.mjs armar <video>
 //
 // Lee: storyboard.json, mi-estilo.md, transcript-cortado.json, caras.json y cortes.json
-// Escribe: edicion/<nombre>/public/ (index.html + video + gsap + fuentes) y armado.json (qué quedó dónde)
+// Escribe: edicion/<nombre>/public/ (index.html + video + gsap + fuentes) y armado.json (qué quedó dónde, los
+// subtítulos y los momentos que llevan efecto de sonido: los mezcla render)
 import { existsSync, mkdirSync, rmSync, writeFileSync, copyFileSync, linkSync, readFileSync } from "node:fs";
 import { join, resolve, extname } from "node:path";
 import { rutas, leerJson, ffprobe, MOTOR, duracion, mmss } from "../lib/comun.mjs";
@@ -14,6 +15,7 @@ import { crearZonas } from "../lib/zonas.mjs";
 import { motion } from "../lib/anim.mjs";
 import { prepararFuente } from "../lib/fuentes.mjs";
 import { construirCaptions } from "../lib/captions.mjs";
+import { TIPOS_SONIDO } from "../lib/sonidos.mjs";
 import texto from "../componentes/texto.mjs";
 import icono from "../componentes/icono.mjs";
 import grafica from "../componentes/grafica.mjs";
@@ -84,6 +86,20 @@ export async function armar(video, opciones = {}) {
     },
   };
 
+  // los momentos que llevan efecto de sonido (cada animación avisa los suyos; «sonido» en el storyboard los cambia)
+  const sonidos = [];
+  const anotar = (p, lista) => {
+    const pedido = p.el.sonido;
+    if (pedido === false || pedido === "no" || pedido === "ninguno") return;
+    if (typeof pedido === "string" && pedido && !TIPOS_SONIDO.includes(pedido)) advertencias.push(`${p.id}: sonido «${pedido}» no existe (hay: ${TIPOS_SONIDO.join(", ")} o «no»)`);
+    for (const x of lista || []) {
+      if (!Number.isFinite(Number(x.t))) continue;
+      const ev = { ...x, id: p.id, t: +Number(x.t).toFixed(3) };
+      if (typeof pedido === "string" && TIPOS_SONIDO.includes(pedido) && ev.tipo !== "conteo") ev.tipo = pedido;
+      sonidos.push(ev);
+    }
+  };
+
   // 1. tiempos
   const planeados = [];
   elementos.forEach((el0, k) => {
@@ -97,7 +113,9 @@ export async function armar(video, opciones = {}) {
     const t0 = resolver(el, null, id);
     if (t0 === null) { if (!el.ancla && typeof el.en !== "number") errores.push(`${id}: falta «ancla» (la frase donde entra)`); return; }
     let t1 = null;
-    if (el.hasta) {
+    // en una gráfica de número o anillo, «hasta» es el número final, no la frase donde sale
+    const hastaEsNumero = tipo === "grafica" && el.hasta !== undefined && el.hasta !== "" && Number.isFinite(Number(el.hasta));
+    if (el.hasta && !hastaEsNumero) {
       const m = buscar(el.hasta, { desde: t0 });
       if (m) t1 = m.end + 0.3;
       else errores.push(`${id}: no encuentro «${el.hasta}» (hasta) después de ${t0.toFixed(1)} s`);
@@ -138,6 +156,7 @@ export async function armar(video, opciones = {}) {
     try {
       const r = p.comp.build({ id: p.id, el: p.el, ajustes, M, z: null, t0: p.t0, t1: p.t1, palabras, escala, resolver, imagenes });
       (r.video || []).forEach((v) => zooms.push({ ...v, id: p.id }));
+      anotar(p, r.sonidos);
       resueltos.push({ id: p.id, tipo: p.tipo, t0: p.t0, t1: p.t1, lugar: "video", porque: p.el.porque || "" });
     } catch (e) { errores.push(`${p.id}: ${e.message}`); }
   }
@@ -183,9 +202,11 @@ export async function armar(video, opciones = {}) {
     zoomsOk.push(zz);
   }
   let vtl = `tl.set("#vz",{scale:1,transformOrigin:"${px(tramos[0].o)}"},0);`;
+  const saltos = []; // los segundos donde la imagen salta de zoom (con efectos: muchos llevan un whoosh suave)
   for (const tr of tramos.slice(1)) {
     if (zoomsOk.some((zz) => tr.a >= zz.t0 - 0.05 && tr.a <= zz.t1)) continue;
     vtl += `tl.set("#vz",{scale:${tr.s},transformOrigin:"${px(tr.o)}"},${T(tr.a)});`;
+    if (ajustes.zoom_escala > 1.001) saltos.push(T(tr.a));
   }
   for (const zz of zoomsOk) {
     const fin = tramoEn(zz.t1);
@@ -217,6 +238,7 @@ export async function armar(video, opciones = {}) {
       const z = zonas.lugar(t0, t1, { aspecto, zona: el.zona || "auto", id, evitar, minimo: (comp.minimo || 240) * escala, apretada });
       const r = comp.build({ id, el, ajustes, M, z, t0, t1, palabras, escala, resolver, imagenes });
       if (r.aviso) advertencias.push(r.aviso);
+      anotar(p, r.sonidos);
       const ini = Math.max(0, t0 - 0.05);
       const fin = Math.min(D, t1 + 0.1);
       hosts.push(`<div id="${id}" class="host clip" data-start="${ini.toFixed(3)}" data-duration="${(fin - ini).toFixed(3)}" data-track-index="${3 + k}" style="left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px;z-index:${10 + k};"><div class="cont">${r.html}</div></div>`);
@@ -232,16 +254,23 @@ export async function armar(video, opciones = {}) {
     }
   });
 
-  // 5. subtítulos (solo con «captions: yo»)
-  const cap = construirCaptions({ palabras, ajustes, zonas, W, H, D });
-
-  // 6. fuente
+  // 5. fuentes (la de las animaciones y, si es otra, la de los subtítulos)
   const pub = R.publico;
   if (existsSync(pub)) rmSync(pub, { recursive: true, force: true });
   mkdirSync(join(pub, "img"), { recursive: true });
   const fuente = await prepararFuente(ajustes.fuente, join(pub, "fuentes"));
   if (fuente.aviso) advertencias.push(fuente.aviso);
   const familia = fuente.familia ? `"${fuente.familia}"` : "sans-serif";
+  let fuenteCap = fuente, familiaCap = familia;
+  if (ajustes.captions === "yo" && ajustes.fuente_subtitulos && ajustes.fuente_subtitulos.toLowerCase() !== ajustes.fuente.toLowerCase()) {
+    fuenteCap = await prepararFuente(ajustes.fuente_subtitulos, join(pub, "fuentes"));
+    if (fuenteCap.aviso) advertencias.push(`subtítulos: ${fuenteCap.aviso}`);
+    familiaCap = fuenteCap.familia ? `"${fuenteCap.familia}"` : familia;
+  }
+
+  // 6. subtítulos por palabra (con «captions: yo»): esquivan la cara y las animaciones ya ubicadas
+  const cap = construirCaptions({ palabras, ajustes, zonas, W, H, D, elementos: resueltos.filter((r) => r.caja), familia: familiaCap });
+  advertencias.push(...cap.advertencias);
 
   // 7. publicar
   enlazarOCopiar(videoBase, join(pub, "video.mp4"));
@@ -252,6 +281,7 @@ export async function armar(video, opciones = {}) {
   for (const im of imagenes.lista) copyFileSync(im.src, join(pub, "img", im.nombre));
 
   const cssTodo = (`${fuente.css}
+${fuenteCap !== fuente ? fuenteCap.css : ""}
 ${cssVariables(ajustes)}
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:${W}px;height:${H}px;overflow:hidden;background:#000;}
@@ -296,7 +326,7 @@ function __fit(){
     if(k<0.995){ el.style.transform="scale("+k.toFixed(4)+")"; el.dataset.encogido=k.toFixed(3); }
   });
 }
-var __cargas = ${fuente.familia ? JSON.stringify(pesos.map((w) => `${w} 60px ${familia}`)) : "[]"}.map(function(f){ return document.fonts.load(f).catch(function(){}); });
+var __cargas = ${JSON.stringify([...new Set([familia, familiaCap])].filter((f) => f !== "sans-serif").flatMap((f) => pesos.map((w) => `${w} 60px ${f}`)))}.map(function(f){ return document.fonts.load(f).catch(function(){}); });
 Promise.all(__cargas).then(function(){ return document.fonts.ready; }).then(function(){
   __fit();
   var tl = gsap.timeline({ paused: true });
@@ -329,8 +359,10 @@ __dibujar(window.__hfThreeTime || 0);
   resueltos.sort((a, b) => a.t0 - b.t0);
   const info = {
     video: videoBase, duracion: D, ancho: W, alto: H, estilo: est.archivo, fuente: fuente.familia || "reemplazo",
-    captions: { modo: ajustes.captions, franja: zonas.franja, frases: cap.frases },
+    captions: { modo: ajustes.captions, franja: zonas.franja, frases: cap.frases, fuente: fuenteCap.familia || "reemplazo", grupos: cap.grupos },
     zoom_en_cortes: puntos.length,
+    saltos_zoom: saltos,
+    sonidos: sonidos.sort((a, b) => a.t - b.t),
     zoom_video: { tramos: tramos.filter((x) => x.s > 1).map((x) => ({ a: x.a, b: x.b, s: x.s, o: x.o.map(Math.round) })), zooms: zoomsOk.map((zz) => ({ t0: zz.t0, t1: zz.t1, s: zz.top, o: zz.o.map(Math.round) })) },
     elementos: resueltos, advertencias: [...advertencias, ...zonas.advertencias], errores,
   };
@@ -340,7 +372,7 @@ __dibujar(window.__hfThreeTime || 0);
 
 export async function main() {
   const info = await armar(process.argv[3]);
-  console.log(`✅ Armado: ${info.elementos.length} animaciones · ${info.duracion} s · fuente ${info.fuente} · subtítulos: ${info.captions.modo}${info.captions.frases ? ` (${info.captions.frases} frases)` : ""}`);
+  console.log(`✅ Armado: ${info.elementos.length} animaciones · ${info.duracion} s · fuente ${info.fuente} · subtítulos: ${info.captions.modo}${info.captions.frases ? ` (${info.captions.frases} frases)` : ""} · ${info.sonidos.length} momentos con sonido (los mezcla render)`);
   for (const r of info.elementos) console.log(`   ${r.id.padEnd(5)} ${r.tipo.padEnd(9)} ${mmss(r.t0)}–${mmss(r.t1)}  ${String(r.lugar).padEnd(9)} ${r.texto || ""}`);
   if (info.advertencias.length) { console.log("⚠️  Advertencias:"); info.advertencias.forEach((a) => console.log("   · " + a)); }
   if (info.errores.length) { console.log("❌ Errores (arreglá el storyboard y volvé a armar):"); info.errores.forEach((a) => console.log("   · " + a)); process.exit(1); }

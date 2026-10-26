@@ -16,6 +16,6 @@ export default {
   aspecto: (el) => Number(el.aspecto) || 1.6,
   build({ id, el, t0, t1 }) {
     const sub = (s) => String(s || "").replaceAll("{{id}}", id).replaceAll("{{t0}}", t0.toFixed(3)).replaceAll("{{t1}}", t1.toFixed(3));
-    return { html: sub(el.html), css: sub(el.css), tl: sub(el.js) };
+    return { html: sub(el.html), css: sub(el.css), tl: sub(el.js), sonidos: [{ t: t0, tipo: "pop", que: "animación hecha a mano" }] };
   },
 };

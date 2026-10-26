@@ -1,16 +1,21 @@
-// render — HyperFrames convierte la composición en el MP4 final, con tu voz tal cual.
+// render — HyperFrames convierte la composición en el MP4, y después se mezclan los efectos de sonido y se
+// nivela la voz (lo que digas no se toca: solo el volumen).
 //
 //   node editar.mjs render <video> [--borrador] [--workers N]
 //
 // Deja <nombre>-editado.mp4 al lado de tu video (con --borrador: <nombre>-borrador.mp4, más rápido y liviano).
+// La versión sin efectos queda en edicion/<nombre>/render-sin-efectos.mp4: «sonidos» vuelve a mezclar desde ahí
+// sin renderizar de nuevo (para «más fuerte», «sin whoosh», etc.).
 // En compus con poca memoria renderiza por tramos con un Chrome nuevo en cada uno; si un intento falla,
 // el siguiente retoma desde el último tramo terminado y el tercero apaga la GPU de Chrome.
 // Todo lo que dice HyperFrames queda en edicion/<nombre>/render.log.
-import { existsSync, rmSync, renameSync, writeFileSync, appendFileSync, openSync, closeSync, statSync, readFileSync } from "node:fs";
+import { existsSync, rmSync, renameSync, writeFileSync, appendFileSync, openSync, closeSync, statSync, readFileSync, copyFileSync } from "node:fs";
 import { join, dirname, basename, extname } from "node:path";
 import { spawnSync, execFileSync } from "node:child_process";
 import os from "node:os";
 import { rutas, leerJson, binHyperframes, entornoHyperframes, arg, tiene, duracion } from "../lib/comun.mjs";
+import { cargarEstilo, buscarEstilo } from "../lib/estilo.mjs";
+import { ponerSonidos } from "../lib/sonidos.mjs";
 import { lint } from "./revisar.mjs";
 
 export function render(video, { borrador = false, workers = null } = {}) {
@@ -59,13 +64,27 @@ export function render(video, { borrador = false, workers = null } = {}) {
   if (!/audio/.test(streams)) throw new Error(`El render salió sin audio (${temporal}).`);
   const dur = duracion(temporal);
   if (Math.abs(dur - armado.duracion) > 0.5) console.log(`⚠️  El render dura ${dur.toFixed(2)} s y el video armado ${armado.duracion} s`);
-  renameSync(temporal, salida);
+  // efectos de sonido y voz nivelada, sobre una copia sin efectos que queda para volver a mezclar
+  const sinEfectos = borrador ? join(R.trabajo, "borrador-sin-efectos.mp4") : R.sinEfectos;
+  renameSync(temporal, sinEfectos);
+  const t1 = Date.now();
+  const est = cargarEstilo(buscarEstilo(R.proyecto));
+  let sonido;
+  try {
+    sonido = ponerSonidos({ armado, ajustes: est.ajustes, base: sinEfectos, salida, trabajo: R.trabajo, json: R.sonidos, txt: R.sonidosTxt });
+  } catch (e) {
+    // si la mezcla falla, el video se entrega igual (sin efectos) y se puede volver a mezclar con «sonidos»
+    copyFileSync(sinEfectos, salida);
+    sonido = { efectos: 0, nivel: est.ajustes.efectos, voz: "sin tocar", avisos: [`no pude mezclar los efectos de sonido (${String(e.message).slice(0, 300)}). El video quedó sin efectos: corré «sonidos <video>» de nuevo`] };
+  }
   const info = {
     fecha: new Date().toISOString(), salida, borrador, duracion_video: armado.duracion,
     segundos_render: +segundos.toFixed(1), veces_tiempo_real: +(segundos / armado.duracion).toFixed(2),
+    segundos_sonido: +((Date.now() - t1) / 1000).toFixed(1), efectos: sonido.efectos, nivel_efectos: sonido.nivel, voz: sonido.voz,
     mb: +(statSync(salida).size / 1e6).toFixed(1), intentos, gpu,
     maquina: `${os.cpus()[0]?.model || "?"} · ${os.arch()} · ${Math.round(os.totalmem() / 2 ** 30)} GB`,
   };
+  info.avisos_sonido = sonido.avisos;
   writeFileSync(join(R.trabajo, "render.json"), JSON.stringify(info, null, 2));
   return info;
 }
@@ -74,5 +93,7 @@ export function main() {
   const i = render(process.argv[3], { borrador: tiene("--borrador"), workers: arg("--workers") });
   console.log(`🎬 ${i.salida}`);
   console.log(`   ${i.duracion_video} s de video en ${i.segundos_render} s (${i.veces_tiempo_real}× tiempo real) · ${i.mb} MB · ${i.maquina}`);
+  console.log(`🔊 ${i.efectos} efectos de sonido (efectos: ${i.nivel_efectos}) · voz ${i.voz} · ${i.segundos_sonido} s · qué suena y cuándo: ${rutas(process.argv[3]).sonidosTxt}`);
+  (i.avisos_sonido || []).forEach((a) => console.log(`   · ${a}`));
   console.log(`   Revisalo: node editar.mjs cuadros "${i.salida}" --cada 2`);
 }

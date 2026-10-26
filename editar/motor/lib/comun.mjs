@@ -41,6 +41,9 @@ export function rutas(video) {
     revision: join(trabajo, "revision"),
     meta: join(trabajo, "video.json"),
     final: join(proyecto, `${basename(original, extname(original))}-editado.mp4`),
+    sinEfectos: join(trabajo, "render-sin-efectos.mp4"),
+    sonidos: join(trabajo, "sonidos.json"),
+    sonidosTxt: join(trabajo, "sonidos.txt"),
   };
 }
 
@@ -57,6 +60,17 @@ export const tiene = (nombre) => process.argv.includes(nombre);
 
 export function ffprobe(archivo, campos) {
   return JSON.parse(execFileSync("ffprobe", ["-v", "error", ...campos, "-of", "json", archivo]).toString());
+}
+
+// Cómo pasarle a FFmpeg un grafo de filtros escrito en un archivo: «-/filter_complex» desde FFmpeg 7,
+// «-filter_complex_script» en las versiones de antes (en FFmpeg 8 sigue andando, pero está por irse).
+let _ffmpegMayor = null;
+export function argGrafo(archivo) {
+  if (_ffmpegMayor === null) {
+    const v = spawnSync("ffmpeg", ["-version"], { encoding: "utf8" });
+    _ffmpegMayor = Number(((v.stdout || "").match(/ffmpeg version n?(\d+)/) || [])[1]) || 0;
+  }
+  return _ffmpegMayor >= 7 ? ["-/filter_complex", archivo] : ["-filter_complex_script", archivo];
 }
 
 export function duracion(archivo) {

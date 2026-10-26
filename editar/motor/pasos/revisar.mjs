@@ -3,7 +3,8 @@
 //   node editar.mjs revisar <video> [--sin-fotos]
 //
 // Deja revision/hoja.jpg: una foto por animación, en su mejor momento, con marcas para mirar rápido:
-//   amarillo = la cara (nunca se tapa) · celeste = la caja de la animación · rojo = franja de subtítulos
+//   amarillo = la cara (nunca se tapa) · celeste = la caja de la animación · rosa = el subtítulo de ese momento
+//   (con «captions: app», rojo = la franja que queda libre para los tuyos)
 // Si el lint tiene errores, no hay render: arreglá y volvé a armar.
 import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -74,7 +75,9 @@ export function revisar(video, { fotos = true } = {}) {
     const filtros = [];
     const c = zonas.cajaCara(m.t - 0.3, m.t + 0.3);
     if (c.detectada) filtros.push(`drawbox=x=${Math.round(c.x0)}:y=${Math.round(c.nucleo.y0)}:w=${Math.round(c.x1 - c.x0)}:h=${Math.round(c.nucleo.y1 - c.nucleo.y0)}:color=yellow@0.9:t=6`);
-    if (zonas.franja) filtros.push(`drawbox=x=0:y=${zonas.franja[0]}:w=iw:h=${zonas.franja[1] - zonas.franja[0]}:color=red@0.8:t=4`);
+    const capAhora = (armado.captions?.grupos || []).find((g) => g.t0 <= m.t && g.t1 > m.t);
+    if (capAhora) filtros.push(`drawbox=x=${Math.round((armado.ancho - capAhora.ancho) / 2)}:y=${Math.round(capAhora.y - capAhora.alto / 2)}:w=${capAhora.ancho}:h=${capAhora.alto}:color=magenta@0.9:t=5`);
+    else if (zonas.franja) filtros.push(`drawbox=x=0:y=${zonas.franja[0]}:w=iw:h=${zonas.franja[1] - zonas.franja[0]}:color=red@0.8:t=4`);
     for (const e of armado.elementos.filter((x) => x.caja && x.t0 <= m.t && x.t1 >= m.t)) {
       filtros.push(`drawbox=x=${e.caja.x}:y=${e.caja.y}:w=${e.caja.w}:h=${e.caja.h}:color=cyan@0.9:t=5`);
       // el control usa el mismo tramo con el que armar eligió el lugar
@@ -96,6 +99,14 @@ export function revisar(video, { fotos = true } = {}) {
   spawnSync("ffmpeg", ["-v", "error", "-y", "-framerate", "1", "-i", join(tmp, "m%02d.png"), "-vf", `tile=${cols}x${filas}:padding=6:margin=6:color=0x111111`, "-frames:v", "1", "-q:v", "3", hoja]);
   rmSync(tmp, { recursive: true, force: true });
   if (tapan.length) salida.avisos.push(`estas animaciones pisan la cara: ${tapan.join(", ")} (cambiales la zona o el momento)`);
+  // subtítulos que pisan la cara (ojos a mentón)
+  const capsCara = (armado.captions?.grupos || []).filter((g) => {
+    const c = zonas.cajaCara(g.t0, g.t1);
+    if (!c.detectada) return false;
+    const x0 = (armado.ancho - g.ancho) / 2, y0 = g.y - g.alto / 2;
+    return Math.min(x0 + g.ancho, c.x1) - Math.max(x0, c.x0) > 10 && Math.min(y0 + g.alto, c.nucleo.y1) - Math.max(y0, c.nucleo.y0) > 10;
+  });
+  if (capsCara.length) salida.avisos.push(`${capsCara.length} subtítulo(s) pisan la cara (desde ${capsCara[0].t0} s): bajá altura_subtitulos o achicá tamano_subtitulos`);
   salida.hoja = existsSync(hoja) ? hoja : null;
   salida.fotos = dirFotos;
   return salida;
@@ -109,6 +120,6 @@ export function main() {
   } else console.log("✅ Lint sin errores");
   if (r.lint.avisos.length) { console.log("   Avisos del lint:"); r.lint.avisos.forEach((e) => console.log("   · " + e)); }
   if (r.avisos.length) { console.log("⚠️  Para revisar:"); r.avisos.forEach((a) => console.log("   · " + a)); }
-  if (r.hoja) console.log(`🖼  Mirá esta hoja antes de renderizar: ${r.hoja}\n   (amarillo = cara · celeste = animación · rojo = franja de subtítulos)`);
+  if (r.hoja) console.log(`🖼  Mirá esta hoja antes de renderizar: ${r.hoja}\n   (amarillo = cara · celeste = animación · rosa = subtítulo · rojo = franja libre para tus subtítulos)`);
   if (r.lint.errores.length) process.exit(1);
 }

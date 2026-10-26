@@ -11,16 +11,17 @@
 //   referencia <video> <ref> mide cómo está editado un video que te gusta (archivo o link) [--hasta 90] [--idioma es]
 //   armar     <video>        storyboard.json → composición de HyperFrames
 //   revisar   <video>        lint + fotos de cada animación (revision/hoja.jpg)
-//   render    <video>        el MP4 final al lado de tu video                 [--borrador]
+//   render    <video>        el MP4 final al lado de tu video, con efectos de sonido y la voz nivelada [--borrador]
+//   sonidos   <video>        vuelve a mezclar los efectos sin renderizar (después de cambiar el estilo)
 //   cuadros   <archivo.mp4>  hoja de fotos de cualquier video                 [--cada 2] [--en 1,5.5]
 //   estado    <video>        qué pasos ya están hechos
 //   componentes              las animaciones que se pueden pedir en el storyboard
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { rutas, leerJson } from "./lib/comun.mjs";
-import { buscarEstilo } from "./lib/estilo.mjs";
+import { buscarEstilo, cargarEstilo, PREGUNTAS } from "./lib/estilo.mjs";
 
-const PASOS = ["instalar", "preparar", "cortar", "caras", "referencia", "armar", "revisar", "render", "cuadros"];
+const PASOS = ["instalar", "preparar", "cortar", "caras", "referencia", "armar", "revisar", "render", "sonidos", "cuadros"];
 
 function estado(video) {
   const R = rutas(video);
@@ -38,6 +39,11 @@ function estado(video) {
   ];
   console.log(`Video: ${R.original}\nCarpeta de trabajo: ${R.trabajo}`);
   for (const [n, f] of filas) console.log(`${f ? "✅" : "·· "} ${n}${f ? `  ${f}` : ""}`);
+  // un estilo hecho con una versión anterior de la skill: le falta alguna respuesta nueva
+  if (estilo) {
+    const { faltan } = cargarEstilo(estilo);
+    if (faltan.length) console.log(`\n❓ A tu estilo le falta: ${faltan.map((k) => PREGUNTAS[k]).join(" y ")}. Preguntá solo eso, una pregunta por mensaje, y agregalo a mi-estilo.md.`);
+  }
   const sig = filas.find(([, f]) => !f);
   if (sig) console.log(`\nSigue: ${sig[0]}`);
   const r = leerJson(join(R.trabajo, "render.json"), null);
@@ -50,13 +56,13 @@ async function componentes() {
     console.log(`\n■ ${tipo} — ${c.resumen}`);
     for (const [k, v] of Object.entries(c.params || {})) console.log(`    ${k}: ${v}`);
   }
-  console.log("\nTodos llevan: id, tipo, ancla (frase exacta del transcript cortado), porque. Opcionales: hasta (frase donde sale), duracion, zona (auto|arriba|abajo|izquierda|derecha), ocurrencia.");
+  console.log("\nTodos llevan: id, tipo, ancla (frase exacta del transcript cortado), porque. Opcionales: hasta (frase donde sale), duracion, zona (auto|arriba|abajo|izquierda|derecha), ocurrencia, sonido (whoosh | pop | click | click suave | golpe | ding | notificacion | error | tecleo | no: cambia o saca el efecto de sonido de esa animación).");
 }
 
 const [paso, video] = process.argv.slice(2);
 try {
   if (!paso || paso === "ayuda" || paso === "--help") {
-    console.log("Uso: node editar.mjs <paso> <video> [opciones]\nPasos: instalar, preparar, cortar, caras, armar, revisar, render, cuadros, estado, componentes");
+    console.log("Uso: node editar.mjs <paso> <video> [opciones]\nPasos: instalar, preparar, cortar, caras, referencia, armar, revisar, render, sonidos, cuadros, estado, componentes");
   } else if (paso === "estado") {
     if (!video) throw new Error("Falta el video: node editar.mjs estado <video>");
     estado(video);

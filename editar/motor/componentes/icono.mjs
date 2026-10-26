@@ -97,6 +97,8 @@ export default {
     const html = `<div class="ico-w">${cuerpo}${etiqueta}</div>`;
     css += `#${id} .ico-w{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;}`;
     tl += M.salida(`#${id} .ico-w`, t1);
-    return { html, css, tl };
+    // el sonido según lo que dice el ícono: la X y la alerta suenan a error, el check a ding, el chat a notificación
+    const SONIDO = { x: "error", alerta: "error", check: "ding", dinero: "ding", telefono: "notificacion", chat: "notificacion", tijera: "click", codigo: "tecleo" };
+    return { html, css, tl, sonidos: [{ t: t0, tipo: (!el.emoji && SONIDO[el.icono]) || "pop", que: `ícono ${el.emoji || el.icono}` }] };
   },
 };

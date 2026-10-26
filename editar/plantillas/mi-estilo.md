@@ -19,9 +19,18 @@ tamano_texto: 1.0         # 1.3 = letras 30 % más grandes
 mayusculas: no
 panel: no                 # fondo detrás del texto grande
 color_panel: "#111111"    # el color de ese fondo (blanco = etiqueta blanca con letra negra)
-captions: app             # yo (los pone la skill) | app (los ponés vos después: queda libre ese espacio) | no
-palabras_por_subtitulo: 4 # con captions: yo
+captions: yo              # yo (subtítulos por palabra, los pone la skill) | app (los ponés vos después: queda libre ese espacio) | no
+palabras_por_subtitulo: 3 # de a cuántas palabras (1 o 2 van más grandes)
 altura_subtitulos: 68     # a qué altura van los subtítulos (% desde arriba, de 55 a 76)
+tamano_subtitulos: 1.0    # 1.2 = subtítulos 20 % más grandes
+resaltar_palabra: si      # la palabra que vas diciendo va en color_acento
+mayusculas_subtitulos: no
+fuente_subtitulos: ""     # vacío = la misma fuente de arriba
+efectos: normal           # efectos de sonido: muchos | normal | pocos | ninguno
+volumen_efectos: 1.0      # 0.7 = más bajos · 1.3 = más fuertes (siempre debajo de tu voz)
+efectos_quitar: []        # clases que no querés: whoosh, pop, click, golpe, ding, conteo, zoom, error, notificacion
+voz: nivelada             # nivelada (pareja, al volumen de Reels/TikTok) | original (como la grabaste)
+velocidad: 1.0            # 1.1 = tu voz 10 % más rápida sin cambiar el tono (con ritmo rápido)
 whisper: small            # tiny | base | small | medium | large-v3-turbo
 idioma: es
 ---
@@ -40,6 +49,7 @@ idioma: es
 - Animaciones:
 - Colores y fuente:
 - Cuántas:
+- Efectos de sonido:
 - Subtítulos:
 
 ## Reglas (lo que aprendí de tus correcciones)

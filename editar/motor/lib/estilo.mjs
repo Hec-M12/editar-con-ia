@@ -12,8 +12,12 @@ export const DEFAULTS = {
   zoom_escala: 1.08,
   zoom_cada: 0,              // segundos entre saltos de zoom aunque no haya cortes (0 = solo en los cortes)
   duracion_animaciones: 0,   // segundos que dura cada animación (0 = lo normal de cada tipo)
-  palabras_por_subtitulo: 4, // con captions: yo
+  palabras_por_subtitulo: 3, // con captions: yo
   altura_subtitulos: 68,     // a qué altura van los subtítulos (% desde arriba)
+  tamano_subtitulos: 1.0,    // multiplicador: 1.3 = subtítulos 30 % más grandes
+  resaltar_palabra: true,    // la palabra que se está diciendo va en el color de acento
+  mayusculas_subtitulos: false,
+  fuente_subtitulos: "",     // vacío = la misma fuente de las animaciones
   tipos: ["texto", "icono", "grafica"], // texto | icono | grafica | lista | 3d | imagen
   densidad: "normal",        // pocas | normal | muchas
   energia: "media",          // calma | media | alta
@@ -26,7 +30,12 @@ export const DEFAULTS = {
   mayusculas: false,
   panel: false,              // fondo detrás del texto grande
   sombra: true,
-  captions: "app",           // yo (los pone la skill) | app (los pone la persona después: se deja libre la franja) | no
+  captions: "yo",            // yo (los pone la skill) | app (los pone la persona después: se deja libre la franja) | no
+  efectos: "normal",         // efectos de sonido: muchos | normal | pocos | ninguno
+  volumen_efectos: 1.0,      // multiplicador: 0.7 = más bajos, 1.3 = más fuertes (siempre debajo de la voz)
+  efectos_quitar: [],        // clases que no van: whoosh | pop | click | golpe | ding | conteo | zoom | error | notificacion
+  voz: "nivelada",           // nivelada (sin graves de fondo y a −14 LUFS, el volumen de las apps) | original
+  velocidad: 1.0,            // 1.1 = la voz 10 % más rápida, sin cambiar el tono (solo si la persona quiere)
   idioma: "es",
   whisper: "small",          // tiny | base | small | medium | large-v3-turbo
 };
@@ -34,6 +43,10 @@ export const DEFAULTS = {
 // segundos mínimos entre una animación y la siguiente, según cuántas quiere la persona
 export const SEPARACION = { pocas: 8, normal: 4.5, muchas: 2.5 };
 export const SILENCIO_POR_RITMO = { rapido: 0.25, medio: 0.4, pausado: 0.7 };
+export const NIVELES_EFECTOS = ["ninguno", "pocos", "normal", "muchos"];
+// respuestas del onboarding que tiene que tener mi-estilo.md; si falta una (un estilo de una versión anterior
+// de la skill), se pregunta solo esa
+export const PREGUNTAS = { efectos: "efectos de sonido (pregunta 6)", captions: "subtítulos (pregunta 7)" };
 
 const COLORES_NOMBRE = {
   blanco: "#FFFFFF", negro: "#111111", amarillo: "#FFD60A", rojo: "#FF3B30", verde: "#34C759",
@@ -124,9 +137,23 @@ export function cargarEstilo(archivo) {
   e.palabras_por_subtitulo = Math.max(1, Math.min(6, Math.round(Number(e.palabras_por_subtitulo) || 4)));
   e.altura_subtitulos = Math.max(55, Math.min(76, Number(e.altura_subtitulos) || 68));
   if (!SEPARACION[e.densidad]) e.densidad = "normal";
-  if (!["yo", "app", "no"].includes(String(e.captions))) e.captions = e.captions === true ? "yo" : e.captions === false ? "no" : "app";
+  const cap = String(e.captions).toLowerCase();
+  e.captions = e.captions === true || ["yo", "si", "sí", "skill"].includes(cap) ? "yo" : e.captions === false || ["no", "sin", "ninguno"].includes(cap) ? "no" : cap === "app" ? "app" : "yo";
+  e.tamano_subtitulos = Math.max(0.5, Math.min(2.5, Number(e.tamano_subtitulos) || 1));
+  e.resaltar_palabra = e.resaltar_palabra !== false;
+  e.mayusculas_subtitulos = e.mayusculas_subtitulos === true;
+  e.fuente_subtitulos = String(e.fuente_subtitulos || "").trim();
+  // efectos: «no», «sin», «nada» = ninguno; «si» = normal
+  const ef = String(e.efectos).toLowerCase();
+  e.efectos = e.efectos === false || ["no", "sin", "nada", "cero"].includes(ef) ? "ninguno" : e.efectos === true ? "normal" : NIVELES_EFECTOS.includes(ef) ? ef : ef === "pocas" ? "pocos" : ef === "muchas" ? "muchos" : "normal";
+  e.volumen_efectos = Math.max(0, Math.min(2.5, Number(e.volumen_efectos === "" ? 1 : e.volumen_efectos ?? 1)));
+  if (!Number.isFinite(e.volumen_efectos)) e.volumen_efectos = 1;
+  e.efectos_quitar = (Array.isArray(e.efectos_quitar) ? e.efectos_quitar : String(e.efectos_quitar || "").split(/[,;]/)).map((x) => String(x).trim().toLowerCase()).filter((x) => x && x !== "false");
+  e.voz = ["original", "igual", "sin tocar", "no"].includes(String(e.voz).toLowerCase()) || e.voz === false ? "original" : "nivelada";
+  e.velocidad = Math.max(1, Math.min(1.25, Number(e.velocidad) || 1));
   e.fuente = String(e.fuente || DEFAULTS.fuente).trim();
-  return { archivo, ajustes: e, prosa, existe: !!crudo };
+  const faltan = crudo ? Object.keys(PREGUNTAS).filter((k) => datos[k] === undefined) : [];
+  return { archivo, ajustes: e, prosa, existe: !!crudo, faltan };
 }
 
 function hexARgb(hex) {

@@ -28,7 +28,7 @@ export default {
     valores: "barras: lista de números (alturas relativas), ej. [2, 5, 9]",
     etiquetas: "barras: lista opcional de 1 palabra por barra",
     direccion: "linea: sube | baja",
-    hasta: "numero/anillo: el número final (el que se dice en el video)",
+    hasta: "numero/anillo: el número final (el que se dice en el video). Acá «hasta» es el número: para que salga antes o después, usá «duracion»",
     desde: "numero: desde dónde cuenta (default 0)",
     prefijo: "numero: texto antes, ej. «$» o «+»",
     sufijo: "numero: texto después, ej. «%», «x», « h»",
@@ -46,6 +46,7 @@ export default {
     const tamEt = Math.round(Math.min(84, 58 * ajustes.tamano_texto) * escala);
     const etiquetaHtml = el.etiqueta ? `<div class="et fit" data-max="${tamEt}" data-min="${Math.round(tamEt * 0.5)}" data-maxh="${Math.round(tamEt * 2.25)}">${esc(el.etiqueta)}</div>` : "";
     let html = "", css = "", tl = "";
+    const sonidos = [];
     css += `#${id} .et{font-family:var(--fuente),sans-serif;font-weight:800;color:var(--texto);text-shadow:var(--sombra);text-transform:var(--transformar);text-align:center;white-space:normal;line-height:1.05;width:100%;margin-top:${Math.round(10 * escala)}px;}`;
 
     if (forma === "numero" || forma === "anillo") {
@@ -80,6 +81,10 @@ export default {
         tl += `tl.fromTo("#${id} .a-arco",{strokeDashoffset:${L.toFixed(2)}},{strokeDashoffset:${(L * (1 - pct)).toFixed(2)},duration:${M.t(Math.min(1.4, tFin - tIn))},ease:"power2.out"},${M.t(tIn)});`;
       }
       tl += cuenta;
+      const nombre = `${el.prefijo || ""}${hasta}${el.sufijo ?? (forma === "anillo" ? "%" : "")}`;
+      sonidos.push(desde !== hasta
+        ? { t: t0, tipo: "conteo", cuenta: [+tIn.toFixed(3), +(tIn + Math.min(1.4, tFin - tIn)).toFixed(3)], que: `el ${nombre}` }
+        : { t: t0, tipo: "golpe", que: `el ${nombre}` });
       if (el.etiqueta) tl += M.entrada(`#${id} .et`, t0 + 0.3, { tipo: "sube" });
     } else if (forma === "barras") {
       const vals = (Array.isArray(el.valores) && el.valores.length ? el.valores : [3, 5, 7, 10]).map(Number).slice(0, 8);
@@ -106,7 +111,9 @@ export default {
 #${id} .bt{fill:var(--texto);font-family:var(--fuente),sans-serif;font-weight:800;text-anchor:middle;}`;
       const paso = Math.max(0.12, (tFin - tIn - 0.4) / n);
       tl += `tl.fromTo("#${id} svg",{opacity:0},{opacity:1,duration:0.2},${M.t(t0)});`;
+      sonidos.push({ t: t0, tipo: "whoosh", que: "entra la gráfica de barras" });
       vals.forEach((_, k) => {
+        sonidos.push({ t: +(tIn + 0.1 + k * paso).toFixed(3), tipo: "pop", que: `barra ${k + 1}` });
         tl += `tl.fromTo("#${id} .b${k}",{scaleY:0,transformOrigin:"50% 100%"},{scaleY:1,transformOrigin:"50% 100%",duration:${M.t(M.dur * 0.9)},ease:"back.out(1.5)"},${M.t(tIn + 0.1 + k * paso)});`;
       });
       if (textos) tl += `tl.fromTo("#${id} .bt",{opacity:0,y:12},{opacity:1,y:0,duration:0.3,stagger:${M.t(paso)}},${M.t(tIn + 0.25)});`;
@@ -138,12 +145,14 @@ export default {
         var o={p:0};function pintar(){var q=pos(o.p);dot.setAttribute("cx",q[0]);dot.setAttribute("cy",q[1]);clip.setAttribute("width",q[0]+42);}
         tl.set(o,{p:0,onUpdate:pintar},${M.t(t0)});
         tl.fromTo(o,{p:0},{p:1,duration:${M.t(tFin - tIn)},ease:"${dir === "baja" ? "power2.in" : "power1.inOut"}",onUpdate:pintar,immediateRender:false},${M.t(tIn)});})();`;
+      sonidos.push({ t: t0, tipo: "whoosh", que: `entra la línea que ${dir}` });
+      if (dir === "baja") sonidos.push({ t: +tFin.toFixed(3), tipo: "golpe", que: "la línea toca fondo" });
       if (dir === "baja") tl += `tl.fromTo("#${id} svg",{x:0},{x:${Math.round(9 * escala)},immediateRender:false,duration:0.05,yoyo:true,repeat:5,ease:"none"},${M.t(tFin)});`;
     } else {
       throw new Error(`forma «${forma}» no existe: barras | linea | numero | anillo`);
     }
     css += `#${id} .g{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;}`;
     tl += M.salida(`#${id} .g`, t1);
-    return { html, css, tl };
+    return { html, css, tl, sonidos };
   },
 };

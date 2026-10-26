@@ -31,6 +31,6 @@ export default {
     tl += `tl.to("#${id} img",{y:${-Math.round(8 * escala)},duration:${M.t(Math.max(0.6, (t1 - t0) / 2))},yoyo:true,repeat:1,ease:"sine.inOut"},${M.t(t0 + M.dur)});`;
     if (el.etiqueta) tl += M.entrada(`#${id} .et`, t0 + 0.25, { tipo: "sube" });
     tl += M.salida(`#${id} .im`, t1);
-    return { html, css, tl };
+    return { html, css, tl, sonidos: [{ t: t0, tipo: "whoosh", que: `imagen ${el.archivo || ""}`.trim() }] };
   },
 };

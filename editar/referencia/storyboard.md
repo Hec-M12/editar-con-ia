@@ -30,7 +30,7 @@ Campos de todos los tipos:
 
 - **texto**: palabra clave o frase corta, grande. `texto` (máx. 5 palabras, una entre `*asteriscos*` sale en el color de acento), `al_decirlo: true` hace entrar cada palabra cuando se dice, `panel: true` le pone franja oscura.
 - **icono**: ícono de línea que se dibuja solo. `icono` (check, x, reloj, rayo, corazon, estrella, chispa, fuego, dinero, regalo, sube, baja, flecha, foco, mic, onda, tijera, codigo, play, camara, chat, persona, calendario, candado, telefono, ojo, robot, pregunta, alerta) o `emoji`, más `etiqueta` opcional de 1 a 3 palabras.
-- **grafica**: `forma: numero` (cuenta hasta `hasta`, con `prefijo` y `sufijo` como «$» o «%»), `anillo` (porcentaje), `barras` (`valores` y `etiquetas`) o `linea` (`direccion: sube` o `baja`). Solo números que la persona dice.
+- **grafica**: `forma: numero` (cuenta hasta `hasta`, con `prefijo` y `sufijo` como «$» o «%»; acá `hasta` es el número, así que para que salga en otro momento usá `duracion`), `anillo` (porcentaje), `barras` (`valores` y `etiquetas`) o `linea` (`direccion: sube` o `baja`). Solo números que la persona dice.
 - **lista**: de 2 a 5 `items`, cada uno con su `ancla` para que entre cuando se nombra. `marca: check`, `numero` o `flecha`; `titulo` opcional.
 - **objeto3d**: objeto 3D que entra girando en el color de acento. `forma`: cubo, esfera, dona, diamante, moneda, piramide, estrella o corazon; `etiqueta` opcional.
 - **zoom**: acerca el video a la cara en un remate. `forma: golpe` (de una) o `empuje` (suave), `escala` de 1.12 a 1.3. No lleva caja.

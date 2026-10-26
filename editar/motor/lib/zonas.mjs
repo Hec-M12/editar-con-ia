@@ -7,11 +7,12 @@ export function zonaSegura(W, H) {
 }
 
 // Franja de subtítulos (px desde arriba): donde la app de la persona suele ponerlos.
-// centro: altura del medio de la franja (0-1); lineas: 1 si los subtítulos son de 1 o 2 palabras
-export function franjaCaptions(W, H, modo, { centro = null, lineas = 2 } = {}) {
+// centro: altura del medio de la franja (0-1); lineas: 1 si los subtítulos son de 1 o 2 palabras;
+// escala: tamano_subtitulos (subtítulos más grandes = franja más alta)
+export function franjaCaptions(W, H, modo, { centro = null, lineas = 2, escala = 1 } = {}) {
   if (modo === "no") return null;
   if (H > W) {
-    const alto = lineas === 1 ? 0.085 : 0.125;
+    const alto = (lineas === 1 ? 0.085 : 0.125) * Math.max(1, escala);
     const c = Math.min(0.8 - alto / 2, Math.max(0.55, centro ?? 0.6775));
     return [Math.round(H * (c - alto / 2)), Math.round(H * (c + alto / 2))];
   }
@@ -37,7 +38,7 @@ export function filtrarCaras(caras) {
 // transformar(t0, t1) → [{ s, ox, oy }]: los zooms del video activos en ese tramo (la cara crece con el zoom)
 export function crearZonas({ W, H, caras, captions, transformar = null, ajustes = null }) {
   const SEG = zonaSegura(W, H);
-  const franja = franjaCaptions(W, H, captions, ajustes ? { centro: ajustes.altura_subtitulos / 100, lineas: ajustes.palabras_por_subtitulo <= 2 ? 1 : 2 } : {});
+  const franja = franjaCaptions(W, H, captions, ajustes ? { centro: ajustes.altura_subtitulos / 100, lineas: ajustes.palabras_por_subtitulo <= 2 ? 1 : 2, escala: ajustes.tamano_subtitulos || 1 } : {});
   const MARGEN = Math.round(Math.min(W, H) * 0.035);
   const advertencias = [];
   const filtradas = filtrarCaras(caras);
