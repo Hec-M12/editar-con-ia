@@ -1,0 +1,15 @@
+{
+  "name": "editar-motor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Motor de la skill editar: Whisper anota cada palabra, FFmpeg corta el aire y HyperFrames convierte código en animaciones.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "gsap": "3.15.0",
+    "hyperframes": "0.8.79",
+    "three": "0.186.1"
+  }
+}
